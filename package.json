@@ -1,0 +1,15 @@
+{
+  "name": "tiktok-trends",
+  "version": "1.0.0",
+  "description": "Coletor leve de vídeos do TikTok baseado em palavras-chave para análise de tendências.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12"
+  }
+}
