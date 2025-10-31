@@ -1,29 +1,24 @@
 import express from "express";
-import puppeteer from "puppeteer-core";
-import chromium from "@sparticuz/chromium-min";
+import puppeteer from "puppeteer";
 
 const app = express();
 
 app.get("/", async (req, res) => {
   const query = req.query.q;
-  if (!query) {
-    return res.send("Use ?q=palavra para buscar no TikTok");
-  }
+  if (!query) return res.send("Use ?q=palavra para buscar no TikTok");
 
   try {
     const browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
       headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
     const page = await browser.newPage();
-    await page.goto(`https://www.tiktok.com/search?q=${encodeURIComponent(query)}&t=${Date.now()}`, {
-      waitUntil: "networkidle2",
+    await page.goto(`https://www.tiktok.com/search?q=${encodeURIComponent(query)}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000
     });
 
-    // Espera os vídeos carregarem
     await page.waitForSelector("div[data-e2e='search-card']", { timeout: 10000 });
 
     const results = await page.evaluate(() => {
@@ -32,8 +27,7 @@ app.get("/", async (req, res) => {
         const link = card.querySelector("a[href*='/video/']")?.href || null;
         const caption = card.querySelector("div[data-e2e='video-desc']")?.innerText || "";
         const author = card.querySelector("a[data-e2e='search-user-name']")?.innerText || "";
-        const stats = card.querySelectorAll("strong[data-e2e*='like-count']");
-        const likes = stats[0]?.innerText || "0";
+        const likes = card.querySelector("strong[data-e2e='like-count']")?.innerText || "0";
         return { link, caption, author, likes };
       });
     });
