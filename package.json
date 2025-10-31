@@ -1,0 +1,15 @@
+{
+  "name": "tiktok-trends",
+  "version": "1.0.0",
+  "description": "Scraper simples de tendências do TikTok",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12"
+  }
+}
