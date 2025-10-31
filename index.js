@@ -1,28 +1,51 @@
 import express from "express";
-import axios from "axios";
-import * as cheerio from "cheerio";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium-min";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 app.get("/", async (req, res) => {
-  const { q } = req.query;
-  if (!q) return res.send("Use ?q=palavra para buscar no TikTok");
+  const query = req.query.q;
+  if (!query) {
+    return res.send("Use ?q=palavra para buscar no TikTok");
+  }
 
   try {
-    const url = `https://www.tiktok.com/search?q=${encodeURIComponent(q)}`;
-    const { data } = await axios.get(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-    const $ = cheerio.load(data);
-    const links = [];
-    $("a[href*='/video/']").each((_, el) => {
-      const link = $(el).attr("href");
-      if (link && !links.includes(link)) links.push(link);
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: true,
     });
-    res.json({ total: links.length, results: links.slice(0, 20) });
+
+    const page = await browser.newPage();
+    await page.goto(`https://www.tiktok.com/search?q=${encodeURIComponent(query)}&t=${Date.now()}`, {
+      waitUntil: "networkidle2",
+    });
+
+    // Espera os vídeos carregarem
+    await page.waitForSelector("div[data-e2e='search-card']", { timeout: 10000 });
+
+    const results = await page.evaluate(() => {
+      const cards = Array.from(document.querySelectorAll("div[data-e2e='search-card']"));
+      return cards.slice(0, 10).map(card => {
+        const link = card.querySelector("a[href*='/video/']")?.href || null;
+        const caption = card.querySelector("div[data-e2e='video-desc']")?.innerText || "";
+        const author = card.querySelector("a[data-e2e='search-user-name']")?.innerText || "";
+        const stats = card.querySelectorAll("strong[data-e2e*='like-count']");
+        const likes = stats[0]?.innerText || "0";
+        return { link, caption, author, likes };
+      });
+    });
+
+    await browser.close();
+
+    res.json({ total: results.length, results });
   } catch (err) {
     console.error(err);
-    res.status(500).send("Erro ao buscar vídeos");
+    res.status(500).json({ error: "Falha ao buscar vídeos", details: err.message });
   }
 });
 
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Servidor ativo na porta ${PORT}`));
